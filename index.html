@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MQTT Control for NodeMCU</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script> <!-- Include MQTT.js -->
+</head>
+<body>
+    <h1>Control NodeMCU via MQTT</h1>
+    
+    <form id="mqttForm">
+        <label for="message">Enter Message:</label><br>
+        <input type="text" id="message" name="message" required><br><br>
+        
+        <button type="submit">Send Message</button>
+    </form>
+
+    <script>
+        // Configuration for connecting to HiveMQ broker
+        const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";  // Use WebSocket connection for port 8884
+        const clientId = "test569ttgg";  // Unique Client ID
+
+        // Create an MQTT client
+        const client = mqtt.connect(brokerUrl, {
+            clientId: clientId,
+            clean: true,  // Clean session
+        });
+
+        // Callback function for when the client connects
+        client.on('connect', function () {
+            console.log('Connected to MQTT broker');
+        });
+
+        // Form submission handler
+        document.getElementById('mqttForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const message = document.getElementById('message').value;
+            sendMessage(message);
+        });
+
+        // Function to publish a message to the 'home/command' topic
+        function sendMessage(message) {
+            if (message.trim() !== "") {
+                const topic = "home/command";  // The topic your NodeMCU is subscribed to
+                console.log(`Publishing message: "${message}" to topic: ${topic}`);
+                client.publish(topic, message, { qos: 0, retain: false }, function (error) {
+                    if (error) {
+                        console.error('Error publishing message:', error);
+                    } else {
+                        console.log('Message sent successfully');
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
