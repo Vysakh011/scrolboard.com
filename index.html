@@ -18,7 +18,7 @@
 
     <script>
         // Configuration for connecting to HiveMQ broker
-        const brokerUrl = "wss://broker.hivemq.com:8884/mqtt";  // Use WebSocket connection for port 8884
+        const brokerUrl = "wss://test.mosquitto.org/mqtt";  // Use WebSocket connection for port 8884
         const clientId = "test569ttgg";  // Unique Client ID
 
         // Create an MQTT client
@@ -42,7 +42,7 @@
         // Function to publish a message to the 'home/command' topic
         function sendMessage(message) {
             if (message.trim() !== "") {
-                const topic = "ECE/scrolboard";  // The topic your NodeMCU is subscribed to
+                const topic = "home/command";  // The topic your NodeMCU is subscribed to
                 console.log(`Publishing message: "${message}" to topic: ${topic}`);
                 client.publish(topic, message, { qos: 0, retain: false }, function (error) {
                     if (error) {
