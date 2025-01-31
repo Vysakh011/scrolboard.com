@@ -1,0 +1,134 @@
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#include <SoftwareSerial.h>
+#define LED_PIN D5
+#define LED_PIN_2 D4
+
+// WiFi credentials
+const char* ssid = "FTTH"; 
+const char* password = "12345678"; 
+
+// MQTT broker details
+const char* mqttServer = "broker.hivemq.com";
+const int mqttPort = 1883;
+const char* mqttTopic = "ece/diFJBNOUIFOVSKJIGWIGJ"; 
+
+// Create SoftwareSerial instance for communication with ESP32
+SoftwareSerial softSerial(4, 5); // GPIO 4 as TX, GPIO 5 as RX
+
+// MQTT Client setup
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// Timer for reset
+unsigned long previousMillis = 0; // Tracks the last reset time
+const unsigned long resetInterval = 3600000; // 1 hour in milliseconds
+
+// Timer for LED blinking
+unsigned long ledBlinkPreviousMillis = 0;
+const unsigned long ledBlinkInterval = 500; // 500 ms blink interval
+bool ledState = LOW; // Current state of the LED
+
+// Function to reconnect to MQTT broker
+void reconnectMQTT() {
+  while (!client.connected()) {
+    Serial.println("Reconnecting to HiveMQ...");
+    String clientId = "NodeMCUClient-" + String(random(0xffff), HEX);
+    if (client.connect(clientId.c_str())) {
+      Serial.println("Reconnected to HiveMQ");
+      client.subscribe(mqttTopic);
+      digitalWrite(LED_PIN, HIGH); // Turn LED on when connected
+    } else {
+      Serial.println("Failed to connect to HiveMQ. Retrying...");
+      digitalWrite(LED_PIN, LOW); // Ensure LED is off
+      delay(2000);
+    }
+  }
+}
+
+// Callback function to handle received messages
+void callback(char* topic, byte* payload, unsigned int length) {
+  if (length == 0) return;
+
+  String message;
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  Serial.println("Message received: " + message);
+
+  if (message == "OFF") digitalWrite(LED_PIN_2, HIGH); // Turn LED off (active LOW)
+  else if (message == "ON") digitalWrite(LED_PIN_2, LOW); // Turn LED on
+
+  softSerial.println(message); // Forward message to ESP32
+}
+
+void setup() {
+  // Start communication with ESP32 (SoftwareSerial)
+  softSerial.begin(9600); // Set baud rate to 9600 for ESP32 communication
+
+  // Setup serial monitor for debugging
+  Serial.begin(115200);
+
+  // Configure LED pin as output
+  pinMode(LED_PIN, OUTPUT);
+
+  // Configure built-in LED pin as output
+  pinMode(D4, OUTPUT);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting to WiFi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+
+  // Setup MQTT
+  client.setServer(mqttServer, mqttPort);
+  client.setCallback(callback);
+  reconnectMQTT();
+}
+
+void loop() {
+  // Ensure WiFi is connected
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected. Reconnecting...");
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(1000);
+      Serial.print(".");
+    }
+    Serial.println("\nReconnected to WiFi.");
+  }
+
+  // Ensure MQTT connection is active
+  if (!client.connected()) {
+    // Blink LED when not connected
+    unsigned long currentMillis = millis();
+    if (currentMillis - ledBlinkPreviousMillis >= ledBlinkInterval) {
+      ledBlinkPreviousMillis = currentMillis;
+      ledState = !ledState; // Toggle LED state
+      digitalWrite(LED_PIN, ledState);
+    }
+    reconnectMQTT();
+  } else {
+    digitalWrite(LED_PIN, HIGH); // Keep LED on when connected
+  }
+
+  client.loop(); // Maintain MQTT connection
+
+  // Read data from GPIO 5 (RX pin) and print to Serial Monitor
+  if (softSerial.available()) {
+    String receivedData = softSerial.readStringUntil('\n'); // Read data until newline
+    Serial.print("Data received on GPIO 5: ");
+    Serial.println(receivedData); // Print the received data
+  }
+
+  // Check if it's time to reset the device
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= resetInterval) {
+    Serial.println("1 hour elapsed. Restarting the NodeMCU...");
+    ESP.restart(); // Reset the NodeMCU
+  }
+}
