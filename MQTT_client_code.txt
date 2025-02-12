@@ -6,13 +6,13 @@
 #define LED_PIN_2 D4
 
 // WiFi credentials
-const char* ssid = "Abcde";  
-const char* password = "";  
+const char* ssid = "ssid";  
+const char* password = "pass";  
 
 // MQTT broker details
 const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883;
-const char* mqttTopic = "ece/diFJBNOUIFOVSKJIGWIGJ";  
+const char* mqttTopic = "topic_to_subscribe";  
 
 SoftwareSerial softSerial(4, 5); 
 
